@@ -198,7 +198,3 @@ Have questions or found a bug? Please:
 ## 👥 Contributors
 
 Thanks to everyone contributing to this project! 🙌
-
----
-
-**Made with ❤️ by the community**
