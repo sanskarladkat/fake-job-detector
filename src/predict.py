@@ -6,11 +6,19 @@ import os
 
 # Get the project root directory
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-model_path = os.path.join(project_root, "models", "model.pkl")
-tfidf_path = os.path.join(project_root, "models", "tfidf.pkl")
+model_dir = os.path.join(project_root, "model")
+model_path = os.path.join(model_dir, "model.pkl")
+tfidf_path = os.path.join(model_dir, "tfidf.pkl")
 
-model = pickle.load(open(model_path, "rb"))
-tfidf = pickle.load(open(tfidf_path, "rb"))
+if not os.path.exists(model_path) or not os.path.exists(tfidf_path):
+    raise FileNotFoundError(
+        f"Could not find model assets. Expected files:\n  {model_path}\n  {tfidf_path}\nPlease verify the 'model' directory exists and contains 'model.pkl' and 'tfidf.pkl'."
+)
+
+with open(model_path, "rb") as f:
+    model = pickle.load(f)
+with open(tfidf_path, "rb") as f:
+    tfidf = pickle.load(f)
 
 keywords = ['urgent', 'quick money', 'no experience', 'work from home']
 
