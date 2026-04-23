@@ -1,0 +1,110 @@
+name: Update Leaderboard on PR
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-leaderboard:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add contributor to leaderboard
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_DATE: ${{ github.event.pull_request.created_at }}
+        run: |
+          # Check if user already exists in leaderboard
+          if grep -q ",$PR_AUTHOR," leaderboard.csv; then
+            echo "User $PR_AUTHOR already in leaderboard. Incrementing contributions..."
+            # Increment their contribution count
+            python3 - <<'EOF'
+          import csv, os, sys
+
+          username = os.environ["PR_AUTHOR"]
+          rows = []
+
+          with open("leaderboard.csv", "r") as f:
+              reader = csv.DictReader(f)
+              fieldnames = reader.fieldnames
+              for row in reader:
+                  if row["username"] == username:
+                      row["contributions"] = str(int(row["contributions"]) + 1)
+                  rows.append(row)
+
+          with open("leaderboard.csv", "w", newline="") as f:
+              writer = csv.DictWriter(f, fieldnames=fieldnames)
+              writer.writeheader()
+              writer.writerows(rows)
+
+          print(f"Updated contributions for {username}")
+          EOF
+          else
+            echo "Adding new user $PR_AUTHOR to leaderboard..."
+            python3 - <<'EOF'
+          import csv, os
+          from datetime import datetime
+
+          username    = os.environ["PR_AUTHOR"]
+          pr_number   = os.environ["PR_NUMBER"]
+          pr_date_raw = os.environ["PR_DATE"]          # e.g. 2026-04-23T10:00:00Z
+          pr_date     = pr_date_raw[:10]               # keep YYYY-MM-DD
+
+          rows = []
+          with open("leaderboard.csv", "r") as f:
+              reader = csv.DictReader(f)
+              fieldnames = reader.fieldnames
+              for row in reader:
+                  rows.append(row)
+
+          new_rank = len(rows) + 1
+          new_row = {
+              "rank":           str(new_rank),
+              "username":       username,
+              "github_profile": f"https://github.com/{username}",
+              "pull_request":   f"#{pr_number}",
+              "date_joined":    pr_date,
+              "contributions":  "1",
+          }
+          rows.append(new_row)
+
+          with open("leaderboard.csv", "w", newline="") as f:
+              writer = csv.DictWriter(f, fieldnames=fieldnames)
+              writer.writeheader()
+              writer.writerows(rows)
+
+          print(f"Added {username} at rank {new_rank}")
+          EOF
+          fi
+
+      - name: Commit and push leaderboard update
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add leaderboard.csv
+          git diff --staged --quiet || git commit -m "🏆 Add ${{ github.event.pull_request.user.login }} to leaderboard [skip ci]"
+          git push
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🎉 Welcome **@${{ github.event.pull_request.user.login }}**! You've been added to the [leaderboard](../blob/main/leaderboard.csv). Thanks for contributing! 🏆`
+            })
