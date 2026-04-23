@@ -2,9 +2,15 @@ import pickle
 import re
 import numpy as np
 from scipy.sparse import hstack
+import os
 
-model = pickle.load(open("models/model.pkl", "rb"))
-tfidf = pickle.load(open("models/tfidf.pkl", "rb"))
+# Get the project root directory
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+model_path = os.path.join(project_root, "models", "model.pkl")
+tfidf_path = os.path.join(project_root, "models", "tfidf.pkl")
+
+model = pickle.load(open(model_path, "rb"))
+tfidf = pickle.load(open(tfidf_path, "rb"))
 
 keywords = ['urgent', 'quick money', 'no experience', 'work from home']
 
